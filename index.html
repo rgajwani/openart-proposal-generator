@@ -1,0 +1,2097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenArt Proposal Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* AUTH GATE */
+  .auth-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #0a0a0a;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 24px;
+  }
+  .auth-overlay.hidden { display: none; }
+  .auth-box {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 20px;
+    padding: 48px 40px;
+    max-width: 420px; width: 90%;
+    text-align: center;
+  }
+  .auth-box h2 {
+    font-size: 24px; font-weight: 700;
+    color: #fff; margin-bottom: 8px;
+  }
+  .auth-box p {
+    color: #888; font-size: 14px; margin-bottom: 24px;
+  }
+  .auth-input {
+    width: 100%; padding: 12px 16px;
+    background: #0a0a0a; color: #e0e0e0;
+    border: 1px solid #2a2a2a; border-radius: 12px;
+    font-size: 16px; font-family: 'Inter', sans-serif;
+    margin-bottom: 16px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .auth-input:focus { border-color: #4ade80; }
+  .auth-input.error { border-color: #ef4444; }
+  .auth-error {
+    color: #ef4444; font-size: 13px;
+    margin-top: -8px; margin-bottom: 16px;
+    display: none;
+  }
+  .auth-error.visible { display: block; }
+  .auth-btn {
+    width: 100%; padding: 14px;
+    background: #4ade80; color: #000;
+    border: none; border-radius: 46px;
+    font-size: 16px; font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .auth-btn:hover { background: #22c55e; }
+  .auth-logo-text {
+    font-size: 20px; font-weight: 800;
+    color: #fff; margin-bottom: 24px;
+  }
+  .auth-logo-text span { color: #4ade80; }
+  .app-content { display: none; }
+  .app-content.visible { display: block; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    min-height: 100vh;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    border-bottom: 1px solid #1a1a1a;
+    background: #0a0a0a;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-left { display: flex; align-items: center; gap: 16px; }
+  .nav-logo {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    text-decoration: none;
+    letter-spacing: -0.5px;
+  }
+  .nav-logo span { color: #4ade80; }
+  .nav-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #888;
+    padding-left: 16px;
+    border-left: 1px solid #333;
+  }
+
+  /* ── Layout ── */
+  .page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .page-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .page-header p {
+    font-size: 14px;
+    color: #888;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .icon {
+    font-size: 14px;
+    color: #4ade80;
+  }
+
+  /* ── Form Elements ── */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-row.single { grid-template-columns: 1fr; }
+
+  .form-group { margin-bottom: 12px; }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #999;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #4ade80;
+  }
+  .form-group input.invalid,
+  .form-group select.invalid {
+    border-color: #ef4444;
+  }
+  .form-group select {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M3 5l3 3 3-3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  .form-group textarea {
+    min-height: 120px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .form-group .hint {
+    font-size: 11px;
+    color: #666;
+    margin-top: 3px;
+  }
+
+  /* ── Radio & Checkbox Groups ── */
+  .radio-group, .checkbox-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .radio-option, .checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+    color: #ccc;
+  }
+  .radio-option:hover, .checkbox-option:hover { border-color: #444; }
+  .radio-option.active {
+    border-color: #4ade80;
+    background: rgba(74,222,128,0.08);
+    color: #fff;
+  }
+  .checkbox-option.active {
+    border-color: #4ade80;
+    background: rgba(74,222,128,0.08);
+    color: #fff;
+  }
+  .radio-option input, .checkbox-option input {
+    display: none;
+  }
+  .radio-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .radio-option.active .radio-dot {
+    border-color: #4ade80;
+  }
+  .radio-option.active .radio-dot::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+  }
+  .check-box {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 10px;
+  }
+  .checkbox-option.active .check-box {
+    border-color: #4ade80;
+    background: #4ade80;
+    color: #000;
+  }
+
+  /* ── Summary Panel ── */
+  .summary-panel {
+    position: sticky;
+    top: 64px;
+  }
+  .summary-card {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .summary-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #1a1a1a;
+    font-size: 13px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { color: #888; }
+  .summary-value { color: #fff; font-weight: 600; }
+  .summary-value.green { color: #4ade80; }
+  .summary-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-top: 2px solid #2a2a2a;
+    margin-top: 8px;
+  }
+  .summary-total .summary-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .summary-total .summary-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #4ade80;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: #4ade80;
+    color: #000;
+    width: 100%;
+  }
+  .btn-primary:hover { background: #22c55e; }
+  .btn-primary:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: transparent;
+    color: #ccc;
+    border: 1px solid #333;
+    width: 100%;
+  }
+  .btn-secondary:hover { border-color: #555; color: #fff; }
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Saved Proposals ── */
+  .saved-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+  }
+  .saved-bar label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    white-space: nowrap;
+  }
+  .saved-bar select {
+    flex: 1;
+    padding: 8px 12px;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .saved-bar button {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #333;
+    background: transparent;
+    color: #ccc;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .saved-bar button:hover { border-color: #555; color: #fff; }
+  .saved-bar button.delete { border-color: #ef4444; color: #ef4444; }
+  .saved-bar button.delete:hover { background: #ef4444; color: #fff; }
+
+  /* ── Preview Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 32px;
+  }
+  .modal-overlay.active { display: flex; justify-content: center; }
+  .modal-content {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 900px;
+    width: 100%;
+    position: relative;
+    margin: auto;
+  }
+  .modal-toolbar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #141414;
+    border-radius: 12px 12px 0 0;
+    border-bottom: 1px solid #2a2a2a;
+    z-index: 10;
+  }
+  .modal-toolbar .title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .modal-toolbar .actions { display: flex; gap: 8px; }
+  .modal-toolbar .btn-dl {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: #4ade80;
+    color: #000;
+    font-family: inherit;
+  }
+  .modal-toolbar .btn-dl:hover { background: #22c55e; }
+  .modal-toolbar .btn-close {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #333;
+    background: transparent;
+    color: #ccc;
+    font-family: inherit;
+  }
+  .modal-toolbar .btn-close:hover { border-color: #555; color: #fff; }
+  .modal-body {
+    padding: 0;
+  }
+
+  /* ── PDF Template (White Print Theme) ── */
+  .pdf-template {
+    background: #fff;
+    color: #000;
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 48px 56px;
+    width: 816px; /* ~8.5in at 96dpi */
+    margin: 0 auto;
+  }
+  .pdf-template * { color: #000; }
+
+  .pdf-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #000;
+  }
+  .pdf-logo {
+    font-size: 22px;
+    font-weight: 800;
+    color: #000 !important;
+    letter-spacing: -0.5px;
+  }
+  .pdf-logo-icon {
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .pdf-doc-type {
+    font-size: 22px;
+    font-weight: 800;
+    color: #000 !important;
+    text-transform: uppercase;
+  }
+
+  .pdf-company-info {
+    font-size: 11px;
+    color: #333 !important;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+  .pdf-company-info * { color: #333 !important; }
+
+  .pdf-section {
+    margin-bottom: 20px;
+    page-break-inside: avoid;
+  }
+  .pdf-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #000 !important;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #ccc;
+  }
+  .pdf-section-subtitle {
+    font-size: 12px;
+    font-weight: 700;
+    color: #000 !important;
+    margin-bottom: 8px;
+    margin-top: 12px;
+  }
+  .pdf-body {
+    font-size: 11px;
+    line-height: 1.6;
+    color: #222 !important;
+    margin-bottom: 8px;
+  }
+  .pdf-body * { color: #222 !important; }
+  .pdf-body strong { color: #000 !important; }
+
+  .pdf-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 11px;
+  }
+  .pdf-table th {
+    background: #d6e4f0;
+    color: #000 !important;
+    font-weight: 700;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #bbb;
+    font-size: 11px;
+  }
+  .pdf-table td {
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    color: #222 !important;
+    vertical-align: top;
+    font-size: 11px;
+  }
+  .pdf-table td strong { color: #000 !important; }
+
+  .pdf-sig-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  .pdf-sig-table th {
+    background: #d6e4f0;
+    color: #000 !important;
+    font-weight: 700;
+    text-align: center;
+    padding: 8px 10px;
+    border: 1px solid #bbb;
+    width: 50%;
+  }
+  .pdf-sig-table td {
+    padding: 12px 16px;
+    border: 1px solid #ccc;
+    vertical-align: top;
+    line-height: 2.2;
+    font-size: 11px;
+  }
+
+  .pdf-footer {
+    text-align: center;
+    font-size: 10px;
+    font-style: italic;
+    color: #666 !important;
+    margin-top: 32px;
+    padding-top: 12px;
+    border-top: 1px solid #ccc;
+  }
+  .pdf-footer * { color: #666 !important; }
+
+  .pdf-page-break {
+    /* page breaks handled by html2pdf's JS pagebreak option */
+    margin: 0;
+    padding: 0;
+    height: 0;
+  }
+
+  .pdf-ul {
+    margin: 8px 0 8px 20px;
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .pdf-ul li { margin-bottom: 3px; color: #222 !important; }
+  .pdf-ul li strong { color: #000 !important; }
+
+  .pdf-terms-list {
+    margin: 8px 0 8px 0;
+    padding-left: 20px;
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .pdf-terms-list li {
+    margin-bottom: 6px;
+    color: #222 !important;
+  }
+
+  /* ── Cover Page ── */
+  .pdf-cover {
+    min-height: 700px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  .pdf-cover-logo {
+    font-size: 36px;
+    font-weight: 800;
+    color: #000 !important;
+    margin-bottom: 40px;
+  }
+  .pdf-cover h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #000 !important;
+    margin-bottom: 8px;
+  }
+  .pdf-cover h2 {
+    font-size: 18px;
+    font-weight: 400;
+    color: #555 !important;
+    margin-bottom: 40px;
+  }
+  .pdf-cover-meta {
+    font-size: 12px;
+    color: #666 !important;
+    line-height: 1.8;
+  }
+  .pdf-cover-meta * { color: #666 !important; }
+  .pdf-cover-meta strong { color: #333 !important; }
+  .pdf-cover-confidential {
+    margin-top: 60px;
+    font-size: 10px;
+    font-style: italic;
+    color: #999 !important;
+    max-width: 500px;
+  }
+  .pdf-cover-confidential * { color: #999 !important; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    background: #22c55e;
+    color: #000;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    z-index: 2000;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1024px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+    .summary-panel {
+      position: static;
+    }
+  }
+  @media (max-width: 640px) {
+    .form-row { grid-template-columns: 1fr; }
+    .form-row.three { grid-template-columns: 1fr; }
+    .radio-group { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PASSWORD GATE -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-logo-text">Open<span>Art</span></div>
+    <h2>Internal Access</h2>
+    <p>Enter the password to access the proposal generator.</p>
+    <input type="password" class="auth-input" id="authInput" placeholder="Password" autocomplete="off">
+    <div class="auth-error" id="authError">Incorrect password. Please try again.</div>
+    <button class="auth-btn" id="authBtn">Access Proposal Generator</button>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="app-content" id="appContent">
+
+<nav class="nav">
+  <div class="nav-left">
+    <a class="nav-logo" href="#">Open<span>Art</span></a>
+    <span class="nav-title">Proposal Generator</span>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <h1>Proposal Generator</h1>
+    <p>Generate polished, branded client proposals and order forms as PDF</p>
+  </div>
+
+  <!-- Saved Proposals Bar -->
+  <div class="saved-bar">
+    <label>Load Saved:</label>
+    <select id="savedProposals" onchange="loadSavedProposal()">
+      <option value="">-- New Proposal --</option>
+    </select>
+    <button onclick="deleteSavedProposal()">Delete</button>
+    <button onclick="clearForm()">Clear Form</button>
+  </div>
+
+  <div class="layout">
+    <!-- ── LEFT: Form ── -->
+    <div class="form-area">
+
+      <!-- Document Type -->
+      <div class="card">
+        <div class="card-title"><span class="icon">1</span> Document Type</div>
+        <div class="radio-group" id="docTypeGroup">
+          <label class="radio-option active" data-value="full">
+            <input type="radio" name="docType" value="full" checked>
+            <span class="radio-dot"></span>
+            Full Proposal
+          </label>
+          <label class="radio-option" data-value="order">
+            <input type="radio" name="docType" value="order">
+            <span class="radio-dot"></span>
+            Order Form Only
+          </label>
+        </div>
+      </div>
+
+      <!-- Client Details -->
+      <div class="card">
+        <div class="card-title"><span class="icon">2</span> Client Details</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Company Name *</label>
+            <input type="text" id="companyName" data-field="companyName" required placeholder='e.g. "Moholy-Nagy University of Art and Design"'>
+          </div>
+          <div class="form-group">
+            <label>Contact Name *</label>
+            <input type="text" id="contactName" data-field="contactName" required placeholder="e.g. Attila Lorincz">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="contactPhone" data-field="contactPhone" placeholder="+36 30 703 3511">
+          </div>
+          <div class="form-group">
+            <label>Email *</label>
+            <input type="email" id="contactEmail" data-field="contactEmail" required placeholder="email@company.com">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Billing Email</label>
+            <input type="email" id="billingEmail" data-field="billingEmail" placeholder="billing@company.com">
+          </div>
+          <div class="form-group">
+            <label>Billing Address</label>
+            <input type="text" id="billingAddress" data-field="billingAddress" placeholder="123 Main St, City, State, ZIP">
+          </div>
+        </div>
+      </div>
+
+      <!-- Plan & Pricing -->
+      <div class="card">
+        <div class="card-title"><span class="icon">3</span> Plan & Pricing</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Plan Type</label>
+            <select id="planType" data-field="planType">
+              <option value="Enterprise">Enterprise</option>
+              <option value="Teams">Teams</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Seat Count *</label>
+            <input type="number" id="seatCount" data-field="seatCount" min="1" value="1" required>
+          </div>
+        </div>
+        <div class="form-row three">
+          <div class="form-group">
+            <label>Monthly Rate / Seat ($)</label>
+            <input type="number" id="monthlyRate" data-field="monthlyRate" min="0" step="0.01" value="59">
+          </div>
+          <div class="form-group">
+            <label>Discount (%)</label>
+            <input type="number" id="discountPct" data-field="discountPct" min="0" max="100" step="1" value="0">
+          </div>
+          <div class="form-group">
+            <label>Discount Label</label>
+            <input type="text" id="discountLabel" data-field="discountLabel" placeholder="e.g. educational discount">
+          </div>
+        </div>
+        <div class="form-row three">
+          <div class="form-group">
+            <label>Term</label>
+            <select id="term" data-field="term">
+              <option value="1 year">One (1) year</option>
+              <option value="1 month">One (1) month</option>
+              <option value="6 months">Six (6) months</option>
+              <option value="2 years">Two (2) years</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Billing Frequency</label>
+            <select id="billingFreq" data-field="billingFreq">
+              <option value="annual">Annual</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Renewal</label>
+            <select id="renewalType" data-field="renewalType">
+              <option value="auto">Auto-renewing</option>
+              <option value="non-renewing">Non-renewing</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" id="startDate" data-field="startDate">
+          </div>
+        </div>
+      </div>
+
+      <!-- Credit Allocation -->
+      <div class="card" id="creditSection">
+        <div class="card-title"><span class="icon">4</span> Credit Allocation</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Credits / Account / Month</label>
+            <input type="text" id="creditsPerMonth" data-field="creditsPerMonth" placeholder="e.g. 333,333">
+          </div>
+        </div>
+        <div id="volumeEstimates">
+          <p style="font-size:12px;color:#888;margin-bottom:12px;">Estimated annual content volume (auto-calculated from credits)</p>
+          <div class="form-row" style="grid-template-columns:repeat(5,1fr);">
+            <div class="form-group">
+              <label>Images</label>
+              <div id="volImages" style="padding:10px 12px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;color:#4ade80;font-size:14px;font-weight:600;">--</div>
+            </div>
+            <div class="form-group">
+              <label>Videos</label>
+              <div id="volVideos" style="padding:10px 12px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;color:#4ade80;font-size:14px;font-weight:600;">--</div>
+            </div>
+            <div class="form-group">
+              <label>Characters</label>
+              <div id="volCharacters" style="padding:10px 12px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;color:#4ade80;font-size:14px;font-weight:600;">--</div>
+            </div>
+            <div class="form-group">
+              <label>Models</label>
+              <div id="volModels" style="padding:10px 12px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;color:#4ade80;font-size:14px;font-weight:600;">--</div>
+            </div>
+            <div class="form-group">
+              <label>Stories</label>
+              <div id="volStories" style="padding:10px 12px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;color:#4ade80;font-size:14px;font-weight:600;">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Optional Sections (Full Proposal only) -->
+      <div class="card" id="optionalSections">
+        <div class="card-title"><span class="icon">5</span> Optional Sections</div>
+        <div class="checkbox-group" id="sectionsGroup">
+          <label class="checkbox-option active" data-value="implementation">
+            <input type="checkbox" name="sections" value="implementation" checked>
+            <span class="check-box">&#10003;</span>
+            Implementation & Support
+          </label>
+          <label class="checkbox-option active" data-value="security">
+            <input type="checkbox" name="sections" value="security" checked>
+            <span class="check-box">&#10003;</span>
+            Security & Compliance
+          </label>
+          <label class="checkbox-option active" data-value="terms">
+            <input type="checkbox" name="sections" value="terms" checked>
+            <span class="check-box">&#10003;</span>
+            Enterprise Terms
+          </label>
+          <label class="checkbox-option" data-value="partnership">
+            <input type="checkbox" name="sections" value="partnership">
+            <span class="check-box">&#10003;</span>
+            Partnership Incentive
+          </label>
+        </div>
+      </div>
+
+      <!-- Partnership Details (conditional) -->
+      <div class="card" id="partnershipCard" style="display:none;">
+        <div class="card-title"><span class="icon">5b</span> Partnership Incentive Details</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Bonus Credits (Total)</label>
+            <input type="text" id="bonusCredits" data-field="bonusCredits" placeholder="e.g. 100,000">
+          </div>
+          <div class="form-group">
+            <label>Per-Account Bonus</label>
+            <input type="text" id="perAccountBonus" data-field="perAccountBonus" placeholder="e.g. 5,000">
+          </div>
+        </div>
+      </div>
+
+      <!-- Metadata -->
+      <div class="card">
+        <div class="card-title"><span class="icon">6</span> Metadata</div>
+        <div class="form-row three">
+          <div class="form-group">
+            <label>Proposal #</label>
+            <input type="text" id="proposalNum" data-field="proposalNum" placeholder="Auto-generated">
+            <div class="hint">Leave blank to auto-generate</div>
+          </div>
+          <div class="form-group">
+            <label>Prepared By</label>
+            <input type="text" id="preparedBy" data-field="preparedBy" value="Raj Gajwani">
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="proposalDate" data-field="proposalDate">
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Terms -->
+      <div class="card">
+        <div class="card-title"><span class="icon">7</span> Order Form Terms</div>
+        <div class="form-group">
+          <label>Custom Terms (one per line, numbered)</label>
+          <textarea id="customTerms" data-field="customTerms">1. This Order Form and Customer's use of the Service described above are subject to OpenArt's standard Terms of Service available at https://openart.ai/terms (the "Terms of Service").
+2. In the event of a conflict between this Order Form and the Terms of Service, this Order Form will control.
+3. OpenArt may: (a) use Customer's name, logo, and marks to identify Customer in marketing materials and on OpenArt's website; and (b) with Customer's prior written consent, produce and publish a case study regarding Customer's use of the Services.
+4. Annual Fee for the first year shall be invoiced upon execution of this Order Form and due upon receipt. Thereafter, Annual Fees will be invoiced on or about the anniversary of the Start Date and due net 30.</textarea>
+        </div>
+        <div class="form-group">
+          <label>Order Form Additional Terms (optional, one per line)</label>
+          <textarea id="additionalTerms" data-field="additionalTerms" style="min-height:60px;">1. Customer will receive enhanced Enterprise Terms as described in Exhibit A ("Enterprise Terms") attached hereto.</textarea>
+        </div>
+      </div>
+
+    </div><!-- /form-area -->
+
+    <!-- ── RIGHT: Summary Panel ── -->
+    <div class="summary-panel">
+      <div class="summary-card">
+        <h3>Live Summary</h3>
+        <div class="summary-row">
+          <span class="summary-label">Document</span>
+          <span class="summary-value" id="sumDocType">Full Proposal</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Client</span>
+          <span class="summary-value" id="sumClient">--</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Plan</span>
+          <span class="summary-value" id="sumPlan">Enterprise</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Seats</span>
+          <span class="summary-value" id="sumSeats">1</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Rate / Seat / Mo</span>
+          <span class="summary-value" id="sumRate">$59.00</span>
+        </div>
+        <div class="summary-row" id="sumDiscountRow" style="display:none;">
+          <span class="summary-label">Discount</span>
+          <span class="summary-value green" id="sumDiscount">0%</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Effective Rate</span>
+          <span class="summary-value" id="sumEffective">$59.00</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Monthly Fee</span>
+          <span class="summary-value" id="sumMonthly">$59.00</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Term</span>
+          <span class="summary-value" id="sumTerm">1 year</span>
+        </div>
+        <div class="summary-total">
+          <span class="summary-label">Contract Fee</span>
+          <span class="summary-value" id="sumTotal">$708.00</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Fee Description</span>
+          <span class="summary-value" id="sumFeeDesc" style="font-size:11px;text-align:right;max-width:200px;">--</span>
+        </div>
+      </div>
+
+      <div class="summary-card" id="sumCreditCard">
+        <h3>Credits</h3>
+        <div class="summary-row">
+          <span class="summary-label">Per Account / Mo</span>
+          <span class="summary-value" id="sumCreditsMonth">--</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Total Annual</span>
+          <span class="summary-value green" id="sumCreditsAnnual">--</span>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="previewBtn" onclick="showPreview()">Preview Proposal</button>
+        <button class="btn btn-secondary" onclick="saveProposal()">Save Draft</button>
+      </div>
+    </div>
+
+  </div><!-- /layout -->
+</div><!-- /page -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Preview Modal -->
+<div class="modal-overlay" id="previewModal">
+  <div class="modal-content">
+    <div class="modal-toolbar">
+      <span class="title" id="modalTitle">Preview</span>
+      <div class="actions">
+        <button class="btn-dl" id="downloadBtn" onclick="downloadPDF()">Download PDF</button>
+        <button class="btn-close" onclick="closePreview()">Close</button>
+      </div>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- ── HIDDEN PDF TEMPLATES ── -->
+<!-- ═══════════════════════════════════════════════════════ -->
+
+<!-- Full Proposal Template -->
+<div id="pdfFullProposal" style="display:none;"></div>
+
+<!-- Order Form Only Template -->
+<div id="pdfOrderForm" style="display:none;"></div>
+
+
+<script>
+// ═══════════════════════════════════════
+// State & Initialization
+// ═══════════════════════════════════════
+
+const STORAGE_KEY = 'openart_proposals';
+const AUTOSAVE_KEY = 'openart_proposal_autosave';
+let autoSaveTimer = null;
+
+// Set default date to today
+document.getElementById('proposalDate').value = new Date().toISOString().split('T')[0];
+
+// Auto-generate proposal number
+function generateProposalNum() {
+  const now = new Date();
+  const y = now.getFullYear().toString().slice(-2);
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const r = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+  return `PROP-${y}${m}-${r}`;
+}
+
+// ═══════════════════════════════════════
+// Form Data Helpers
+// ═══════════════════════════════════════
+
+function getFormData() {
+  const docType = document.querySelector('input[name="docType"]:checked').value;
+  const sections = Array.from(document.querySelectorAll('input[name="sections"]:checked')).map(cb => cb.value);
+
+  return {
+    docType,
+    companyName: v('companyName'),
+    contactName: v('contactName'),
+    contactPhone: v('contactPhone'),
+    contactEmail: v('contactEmail'),
+    billingEmail: v('billingEmail'),
+    billingAddress: v('billingAddress'),
+    planType: v('planType'),
+    seatCount: parseInt(v('seatCount')) || 1,
+    monthlyRate: parseFloat(v('monthlyRate')) || 59,
+    discountPct: parseFloat(v('discountPct')) || 0,
+    discountLabel: v('discountLabel'),
+    term: v('term'),
+    billingFreq: v('billingFreq'),
+    renewalType: v('renewalType'),
+    startDate: v('startDate'),
+    creditsPerMonth: v('creditsPerMonth'),
+    volumes: calcVolumes(parseCreditsNum(v('creditsPerMonth'))),
+    sections,
+    bonusCredits: v('bonusCredits'),
+    perAccountBonus: v('perAccountBonus'),
+    proposalNum: v('proposalNum'),
+    preparedBy: v('preparedBy'),
+    proposalDate: v('proposalDate'),
+    customTerms: v('customTerms'),
+    additionalTerms: v('additionalTerms'),
+  };
+}
+
+function v(id) { return document.getElementById(id).value.trim(); }
+
+function setFormData(data) {
+  // Set radio
+  document.querySelectorAll('input[name="docType"]').forEach(r => {
+    r.checked = r.value === data.docType;
+  });
+  updateRadioUI();
+
+  // Set text/select fields
+  const fields = ['companyName','contactName','contactPhone','contactEmail','billingEmail','billingAddress',
+    'planType','seatCount','monthlyRate','discountPct','discountLabel','term','billingFreq','renewalType',
+    'startDate','creditsPerMonth',
+    'bonusCredits','perAccountBonus','proposalNum','preparedBy','proposalDate','customTerms','additionalTerms'];
+  fields.forEach(f => {
+    if (data[f] !== undefined && document.getElementById(f)) {
+      document.getElementById(f).value = data[f];
+    }
+  });
+
+  // Set checkboxes
+  document.querySelectorAll('input[name="sections"]').forEach(cb => {
+    cb.checked = (data.sections || []).includes(cb.value);
+  });
+  updateCheckboxUI();
+  updateConditionalSections();
+  updateSummary();
+}
+
+// ═══════════════════════════════════════
+// Calculations
+// ═══════════════════════════════════════
+
+// Credit-to-content ratios derived from 106,000 credits/month plan on openart.ai
+// 106,000 credits = ~106,000 images, ~1,300 videos, ~353 characters, ~353 models, ~150 stories
+const CREDIT_RATIOS = {
+  images:     106000 / 106000,    // 1 credit per image
+  videos:     106000 / 1300,      // ~81.54 credits per video
+  characters: 106000 / 353,       // ~300.28 credits per character
+  models:     106000 / 353,       // ~300.28 credits per model
+  stories:    106000 / 150,       // ~706.67 credits per story
+};
+
+function calcVolumes(creditsPerMonth) {
+  if (!creditsPerMonth || creditsPerMonth <= 0) return null;
+  const annual = creditsPerMonth * 12;
+  return {
+    images:     Math.floor(annual / CREDIT_RATIOS.images),
+    videos:     Math.floor(annual / CREDIT_RATIOS.videos),
+    characters: Math.floor(annual / CREDIT_RATIOS.characters),
+    models:     Math.floor(annual / CREDIT_RATIOS.models),
+    stories:    Math.floor(annual / CREDIT_RATIOS.stories),
+  };
+}
+
+function fmtVolume(n) {
+  return '~' + n.toLocaleString('en-US') + '+';
+}
+
+function calcEffectiveRate(rate, discountPct) {
+  return rate * (1 - discountPct / 100);
+}
+
+function calcMonthlyFee(seats, effectiveRate) {
+  return seats * effectiveRate;
+}
+
+function calcContractFee(monthlyFee, term, billingFreq) {
+  let months = 12;
+  if (term === '1 month') months = 1;
+  else if (term === '6 months') months = 6;
+  else if (term === '2 years') months = 24;
+  return monthlyFee * months;
+}
+
+function termMonths(term) {
+  if (term === '1 month') return 1;
+  if (term === '6 months') return 6;
+  if (term === '2 years') return 24;
+  return 12;
+}
+
+function fmtCurrency(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtNum(n) {
+  return n.toLocaleString('en-US');
+}
+
+function buildFeeDescription(data) {
+  const effective = calcEffectiveRate(data.monthlyRate, data.discountPct);
+  const monthly = calcMonthlyFee(data.seatCount, effective);
+  const months = termMonths(data.term);
+  const total = monthly * months;
+
+  let desc = `${fmtCurrency(total)} (${data.seatCount} seat${data.seatCount > 1 ? 's' : ''} @ ${fmtCurrency(effective)}/seat/month`;
+  if (data.discountPct > 0 && data.discountLabel) {
+    desc += `, with ${data.discountPct}% ${data.discountLabel}`;
+  } else if (data.discountPct > 0) {
+    desc += `, with ${data.discountPct}% discount`;
+  }
+  desc += ')';
+  return desc;
+}
+
+function parseCreditsNum(str) {
+  if (!str) return 0;
+  return parseInt(str.replace(/[^0-9]/g, '')) || 0;
+}
+
+// ═══════════════════════════════════════
+// UI Updates
+// ═══════════════════════════════════════
+
+function updateSummary() {
+  const data = getFormData();
+  const effective = calcEffectiveRate(data.monthlyRate, data.discountPct);
+  const monthly = calcMonthlyFee(data.seatCount, effective);
+  const months = termMonths(data.term);
+  const contractFee = monthly * months;
+
+  document.getElementById('sumDocType').textContent = data.docType === 'full' ? 'Full Proposal' : 'Order Form Only';
+  document.getElementById('sumClient').textContent = data.companyName || '--';
+  document.getElementById('sumPlan').textContent = data.planType;
+  document.getElementById('sumSeats').textContent = data.seatCount;
+  document.getElementById('sumRate').textContent = fmtCurrency(data.monthlyRate);
+
+  if (data.discountPct > 0) {
+    document.getElementById('sumDiscountRow').style.display = '';
+    document.getElementById('sumDiscount').textContent = data.discountPct + '%' + (data.discountLabel ? ` (${data.discountLabel})` : '');
+  } else {
+    document.getElementById('sumDiscountRow').style.display = 'none';
+  }
+
+  document.getElementById('sumEffective').textContent = fmtCurrency(effective);
+  document.getElementById('sumMonthly').textContent = fmtCurrency(monthly);
+  document.getElementById('sumTerm').textContent = data.term;
+  document.getElementById('sumTotal').textContent = fmtCurrency(contractFee);
+  document.getElementById('sumFeeDesc').textContent = buildFeeDescription(data);
+
+  // Credits & Volumes
+  const credNum = parseCreditsNum(data.creditsPerMonth);
+  document.getElementById('sumCreditsMonth').textContent = data.creditsPerMonth || '--';
+  if (credNum > 0) {
+    document.getElementById('sumCreditsAnnual').textContent = fmtNum(credNum * 12);
+  } else {
+    document.getElementById('sumCreditsAnnual').textContent = '--';
+  }
+
+  // Auto-calculated volume estimates
+  const vols = data.volumes;
+  document.getElementById('volImages').textContent = vols ? fmtVolume(vols.images) : '--';
+  document.getElementById('volVideos').textContent = vols ? fmtVolume(vols.videos) : '--';
+  document.getElementById('volCharacters').textContent = vols ? fmtVolume(vols.characters) : '--';
+  document.getElementById('volModels').textContent = vols ? fmtVolume(vols.models) : '--';
+  document.getElementById('volStories').textContent = vols ? fmtVolume(vols.stories) : '--';
+}
+
+function updateRadioUI() {
+  document.querySelectorAll('#docTypeGroup .radio-option').forEach(opt => {
+    const input = opt.querySelector('input');
+    opt.classList.toggle('active', input.checked);
+  });
+  updateConditionalSections();
+}
+
+function updateCheckboxUI() {
+  document.querySelectorAll('#sectionsGroup .checkbox-option').forEach(opt => {
+    const input = opt.querySelector('input');
+    opt.classList.toggle('active', input.checked);
+  });
+}
+
+function updateConditionalSections() {
+  const docType = document.querySelector('input[name="docType"]:checked').value;
+  const isOrderOnly = docType === 'order';
+
+  // Hide volume estimates and optional sections for order form only
+  document.getElementById('volumeEstimates').style.display = isOrderOnly ? 'none' : '';
+  document.getElementById('optionalSections').style.display = isOrderOnly ? 'none' : '';
+
+  // Partnership card
+  const hasPartnership = document.querySelector('input[name="sections"][value="partnership"]');
+  document.getElementById('partnershipCard').style.display =
+    (!isOrderOnly && hasPartnership && hasPartnership.checked) ? '' : 'none';
+}
+
+// ═══════════════════════════════════════
+// Event Listeners
+// ═══════════════════════════════════════
+
+// Radio buttons
+document.querySelectorAll('#docTypeGroup .radio-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    const input = opt.querySelector('input');
+    input.checked = true;
+    updateRadioUI();
+    updateSummary();
+    scheduleAutoSave();
+  });
+});
+
+// Checkboxes
+document.querySelectorAll('#sectionsGroup .checkbox-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    const input = opt.querySelector('input');
+    input.checked = !input.checked;
+    updateCheckboxUI();
+    updateConditionalSections();
+    scheduleAutoSave();
+  });
+});
+
+// All form inputs
+document.querySelectorAll('input[data-field], select[data-field], textarea[data-field]').forEach(el => {
+  el.addEventListener('input', () => {
+    updateSummary();
+    scheduleAutoSave();
+  });
+  el.addEventListener('change', () => {
+    updateSummary();
+    scheduleAutoSave();
+  });
+});
+
+// ═══════════════════════════════════════
+// Auto-save & localStorage
+// ═══════════════════════════════════════
+
+function scheduleAutoSave() {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(getFormData()));
+  }, 500);
+}
+
+function loadAutoSave() {
+  const saved = localStorage.getItem(AUTOSAVE_KEY);
+  if (saved) {
+    try {
+      setFormData(JSON.parse(saved));
+    } catch (e) {}
+  }
+}
+
+function saveProposal() {
+  const data = getFormData();
+  if (!data.companyName) {
+    showToast('Enter a company name first');
+    return;
+  }
+  const num = data.proposalNum || generateProposalNum();
+  document.getElementById('proposalNum').value = num;
+  data.proposalNum = num;
+
+  const proposals = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  const key = `${num} - ${data.companyName}`;
+  proposals[key] = { ...data, savedAt: new Date().toISOString() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(proposals));
+  refreshSavedList();
+  document.getElementById('savedProposals').value = key;
+  showToast('Saved: ' + key);
+}
+
+function loadSavedProposal() {
+  const key = document.getElementById('savedProposals').value;
+  if (!key) return;
+  const proposals = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  if (proposals[key]) {
+    setFormData(proposals[key]);
+    showToast('Loaded: ' + key);
+  }
+}
+
+function deleteSavedProposal() {
+  const key = document.getElementById('savedProposals').value;
+  if (!key) return;
+  const proposals = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  delete proposals[key];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(proposals));
+  refreshSavedList();
+  showToast('Deleted');
+}
+
+function refreshSavedList() {
+  const sel = document.getElementById('savedProposals');
+  const proposals = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  sel.innerHTML = '<option value="">-- New Proposal --</option>';
+  Object.keys(proposals).sort().forEach(key => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = key;
+    sel.appendChild(opt);
+  });
+}
+
+function clearForm() {
+  document.querySelectorAll('input[data-field]').forEach(el => {
+    if (el.type === 'number') el.value = el.defaultValue || '';
+    else if (el.type === 'date') el.value = '';
+    else el.value = '';
+  });
+  document.getElementById('preparedBy').value = 'Raj Gajwani';
+  document.getElementById('monthlyRate').value = '59';
+  document.getElementById('seatCount').value = '1';
+  document.getElementById('discountPct').value = '0';
+  document.getElementById('proposalDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('proposalNum').value = '';
+  document.getElementById('savedProposals').value = '';
+
+  // Reset custom terms to defaults
+  document.getElementById('customTerms').value = `1. This Order Form and Customer's use of the Service described above are subject to OpenArt's standard Terms of Service available at https://openart.ai/terms (the "Terms of Service").
+2. In the event of a conflict between this Order Form and the Terms of Service, this Order Form will control.
+3. OpenArt may: (a) use Customer's name, logo, and marks to identify Customer in marketing materials and on OpenArt's website; and (b) with Customer's prior written consent, produce and publish a case study regarding Customer's use of the Services.
+4. Annual Fee for the first year shall be invoiced upon execution of this Order Form and due upon receipt. Thereafter, Annual Fees will be invoiced on or about the anniversary of the Start Date and due net 30.`;
+  document.getElementById('additionalTerms').value = '1. Customer will receive enhanced Enterprise Terms as described in Exhibit A ("Enterprise Terms") attached hereto.';
+
+  // Reset radios and checkboxes
+  document.querySelector('input[name="docType"][value="full"]').checked = true;
+  updateRadioUI();
+  document.querySelectorAll('input[name="sections"]').forEach(cb => {
+    cb.checked = cb.value !== 'partnership';
+  });
+  updateCheckboxUI();
+  updateConditionalSections();
+  updateSummary();
+  localStorage.removeItem(AUTOSAVE_KEY);
+  showToast('Form cleared');
+}
+
+// ═══════════════════════════════════════
+// Validation
+// ═══════════════════════════════════════
+
+function validateForm() {
+  let valid = true;
+  const required = ['companyName', 'contactName', 'contactEmail', 'seatCount'];
+  required.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) {
+      el.classList.add('invalid');
+      valid = false;
+    } else {
+      el.classList.remove('invalid');
+    }
+  });
+  if (!valid) showToast('Please fill in all required fields');
+  return valid;
+}
+
+// ═══════════════════════════════════════
+// PDF Template Builders
+// ═══════════════════════════════════════
+
+function buildOrderFormHTML(data) {
+  const effective = calcEffectiveRate(data.monthlyRate, data.discountPct);
+  const monthly = calcMonthlyFee(data.seatCount, effective);
+  const months = termMonths(data.term);
+  const contractFee = monthly * months;
+  const feeLabel = months === 1 ? 'Contract Fee' : (months <= 6 ? 'Contract Fee' : 'Annual Fee');
+  const propNum = data.proposalNum || generateProposalNum();
+  const propDate = data.proposalDate ? new Date(data.proposalDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const startDateDisplay = data.startDate ? new Date(data.startDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'TBD';
+
+  const renewalText = data.renewalType === 'auto'
+    ? 'Automatically renews with updated pricing for successive one-year periods unless either party gives the other notice of non-renewal at least thirty (30) days before the end of the current term.'
+    : 'Non-renewing';
+
+  const termLabel = data.term === '1 year' ? 'One (1) year'
+    : data.term === '1 month' ? 'One month, date TBD'
+    : data.term === '6 months' ? 'Six (6) months'
+    : 'Two (2) years';
+
+  const creditsDisplay = data.creditsPerMonth || 'N/A';
+
+  // Build service description
+  let serviceItems = `<li>OpenArt platform license</li>`;
+  serviceItems += `<li>${data.planType} plan (${fmtNum(parseCreditsNum(data.creditsPerMonth))} pooled credits, shared assets, team permissions &amp; access controls)</li>`;
+  serviceItems += `<li>On-boarding/training/feedback assistance</li>`;
+  serviceItems += `<li>Admin controls</li>`;
+
+  // Fee description
+  let feeDesc = `${fmtCurrency(contractFee)} (${data.seatCount} seats @ ${fmtCurrency(effective)} per seat per month`;
+  if (data.discountPct > 0 && data.discountLabel) {
+    feeDesc += `, with ${data.discountPct}% ${data.discountLabel}`;
+  } else if (data.discountPct > 0) {
+    feeDesc += `, with ${data.discountPct}% discount`;
+  }
+  feeDesc += ')';
+
+  // Custom terms
+  const termsLines = data.customTerms.split('\n').filter(l => l.trim());
+  let termsHTML = termsLines.map(l => `<li>${escHtml(l.replace(/^\d+\.\s*/, ''))}</li>`).join('\n');
+
+  // Additional terms
+  const addlLines = (data.additionalTerms || '').split('\n').filter(l => l.trim());
+  let addlHTML = '';
+  if (addlLines.length > 0) {
+    addlHTML = `
+      <div class="pdf-section-subtitle" style="margin-top:16px;">Order Form Additional Terms</div>
+      <ol class="pdf-terms-list">${addlLines.map(l => `<li>${escHtml(l.replace(/^\d+\.\s*/, ''))}</li>`).join('\n')}</ol>
+    `;
+  }
+
+  return `
+    <div class="pdf-template">
+      <!-- Header -->
+      <div class="pdf-header">
+        <div class="pdf-logo">
+          <svg class="pdf-logo-icon" width="28" height="18" viewBox="0 0 28 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 1C3.5 1 1 4 1 7s2.5 6 6 6c2 0 3.5-0.8 5-2.5 1.5 1.7 3 2.5 5 2.5 3.5 0 6-3 6-6s-2.5-6-6-6c-2 0-3.5 0.8-5 2.5C10.5 1.8 9 1 7 1zm0 2c1.5 0 2.8 0.8 4 2.3-1.2 1.5-2.5 2.3-4 2.3-2.2 0-4-1.8-4-3.3S4.8 3 7 3zm10 0c2.2 0 4 1.5 4 3.3S19.2 9.6 17 9.6c-1.5 0-2.8-0.8-4-2.3 1.2-1.5 2.5-2.3 4-2.3z" fill="#000" stroke="#000" stroke-width="0.5"/>
+          </svg>
+          OpenArt
+        </div>
+        <div class="pdf-doc-type">ORDER FORM</div>
+      </div>
+
+      <!-- Company Info -->
+      <div class="pdf-company-info">
+        OpenArt AI, Inc. ("OpenArt")<br>
+        227 Rutherford Ave<br>
+        Redwood City, CA 94061, USA
+      </div>
+
+      <!-- Contact Info Table -->
+      <table class="pdf-table">
+        <thead>
+          <tr>
+            <th>Customer Contact Information</th>
+            <th>OpenArt Contact Information</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>Customer:</strong> ${escHtml(data.companyName)} ("Customer")<br>
+              <strong>Primary Contact:</strong> ${escHtml(data.contactName)}<br>
+              <strong>Primary Contact Phone:</strong> ${escHtml(data.contactPhone)}<br>
+              <strong>Primary Contact Email:</strong> ${escHtml(data.contactEmail)}<br>
+              ${data.billingEmail ? `<strong>Billing Email:</strong> ${escHtml(data.billingEmail)}<br>` : ''}
+              ${data.billingAddress ? `<strong>Billing Address:</strong> ${escHtml(data.billingAddress)}` : ''}
+            </td>
+            <td>
+              <strong>OpenArt Contact:</strong> ${escHtml(data.preparedBy)}<br>
+              <strong>OpenArt Contact Phone:</strong> +1 415 572 7590<br>
+              <strong>OpenArt Contact Email:</strong> raj@openart.ai
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Service Table -->
+      <table class="pdf-table" style="margin-top:16px;">
+        <tbody>
+          <tr>
+            <td style="width:120px;"><strong>Service</strong></td>
+            <td><ul style="margin:0;padding-left:16px;">${serviceItems}</ul></td>
+          </tr>
+          <tr>
+            <td><strong>${feeLabel}:</strong></td>
+            <td>${feeDesc}</td>
+          </tr>
+          <tr>
+            <td><strong>Term:</strong></td>
+            <td>${termLabel}</td>
+          </tr>
+          <tr>
+            <td><strong>Start Date:</strong></td>
+            <td>${startDateDisplay}</td>
+          </tr>
+          <tr>
+            <td><strong>Renewals:</strong></td>
+            <td>${renewalText}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Order Form Terms -->
+      <div class="pdf-section" style="margin-top:20px;">
+        <div class="pdf-section-title" style="border-bottom:none;font-size:13px;">ORDER FORM TERMS</div>
+        <ol class="pdf-terms-list">${termsHTML}</ol>
+        ${addlHTML}
+      </div>
+
+      <!-- Signatures -->
+      <table class="pdf-sig-table">
+        <thead>
+          <tr>
+            <th>OpenArt AI, Inc.</th>
+            <th>Customer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <strong>Signature:</strong> _________________________<br>
+              <strong>Name:</strong> _________________________<br>
+              <strong>Title:</strong> _________________________<br>
+              <strong>Date:</strong> _________________________
+            </td>
+            <td>
+              <strong>Signature:</strong> _________________________<br>
+              <strong>Name:</strong> _________________________<br>
+              <strong>Title:</strong> _________________________<br>
+              <strong>Date:</strong> _________________________
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Footer -->
+      <div class="pdf-footer">
+        CONFIDENTIAL &amp; PROPRIETARY
+      </div>
+    </div>
+  `;
+}
+
+function buildFullProposalHTML(data) {
+  const effective = calcEffectiveRate(data.monthlyRate, data.discountPct);
+  const monthly = calcMonthlyFee(data.seatCount, effective);
+  const months = termMonths(data.term);
+  const contractFee = monthly * months;
+  const propNum = data.proposalNum || generateProposalNum();
+  const propDate = data.proposalDate ? new Date(data.proposalDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+  const startDateDisplay = data.startDate ? new Date(data.startDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'TBD';
+  const credNum = parseCreditsNum(data.creditsPerMonth);
+  const totalAnnualCredits = credNum * 12;
+
+  const renewalText = data.renewalType === 'auto'
+    ? 'Auto-renews for successive 1-year terms unless either party provides 30 days\' notice of non-renewal'
+    : 'Non-renewing';
+
+  const feeLabel = months <= 6 ? 'Contract Fee' : 'Annual Fee';
+
+  let feeDesc = `$${contractFee.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} USD`;
+
+  let html = `<div class="pdf-template">`;
+
+  // ── COVER PAGE ──
+  html += `
+    <div class="pdf-cover">
+      <div class="pdf-cover-logo">
+        <svg width="32" height="20" viewBox="0 0 28 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:6px;">
+          <path d="M7 1C3.5 1 1 4 1 7s2.5 6 6 6c2 0 3.5-0.8 5-2.5 1.5 1.7 3 2.5 5 2.5 3.5 0 6-3 6-6s-2.5-6-6-6c-2 0-3.5 0.8-5 2.5C10.5 1.8 9 1 7 1zm0 2c1.5 0 2.8 0.8 4 2.3-1.2 1.5-2.5 2.3-4 2.3-2.2 0-4-1.8-4-3.3S4.8 3 7 3zm10 0c2.2 0 4 1.5 4 3.3S19.2 9.6 17 9.6c-1.5 0-2.8-0.8-4-2.3 1.2-1.5 2.5-2.3 4-2.3z" fill="#000" stroke="#000" stroke-width="0.5"/>
+        </svg>
+        OpenArt
+      </div>
+      <h1>Enterprise Proposal</h1>
+      <h2>Prepared for ${escHtml(data.companyName)}</h2>
+      <div class="pdf-cover-meta">
+        <strong>Prepared by:</strong> ${escHtml(data.preparedBy)}, OpenArt AI, Inc.<br>
+        <strong>Date:</strong> ${propDate}<br>
+        <strong>Proposal #:</strong> ${escHtml(propNum)}
+      </div>
+      <div class="pdf-cover-confidential">
+        CONFIDENTIAL &amp; PROPRIETARY — This document contains confidential pricing and commercial terms intended solely for ${escHtml(data.companyName)}. Do not distribute without prior written consent from OpenArt AI, Inc.
+      </div>
+    </div>
+  `;
+
+  // ── EXECUTIVE SUMMARY ──
+  html += `
+    <div class="pdf-page-break"></div>
+    <div class="pdf-section">
+      <div class="pdf-section-title">1. Executive Summary</div>
+
+      <div class="pdf-section-subtitle">About OpenArt</div>
+      <div class="pdf-body">OpenArt is an enterprise-grade AI creative platform that empowers teams to produce studio-quality visual content at scale — images, videos, branded characters, and more — in a fraction of the time and cost of traditional creative workflows. Built for professional teams in advertising, marketing, e-commerce, and media, OpenArt combines state-of-the-art generative AI with the governance, security, and collaboration features that enterprises require.</div>
+
+      <div class="pdf-section-subtitle">The Platform</div>
+      <div class="pdf-body">OpenArt's platform gives your team access to a comprehensive suite of AI-powered creative tools, all within a single, secure workspace:</div>
+      <div class="pdf-body"><strong>AI Image Generation</strong> — Generate high-resolution images from text prompts, reference images, or a combination of both. OpenArt supports a wide range of styles — photorealistic, illustrative, 3D, abstract — and gives users fine-grained control over composition, lighting, color palette, and aspect ratio.</div>
+      <div class="pdf-body"><strong>AI Video Generation</strong> — Create short-form video content directly from text descriptions or from static images. OpenArt's video engine produces motion graphics, product animations, cinematic clips, and social-ready video assets.</div>
+      <div class="pdf-body"><strong>Consistent Characters</strong> — Create and maintain a persistent, brand-consistent character that can be placed into any scene, pose, or context. Ideal for advertising campaigns, brand mascots, product spokespersons, and serialized content.</div>
+      <div class="pdf-body"><strong>Personalized Models</strong> — Train lightweight, custom AI models on your brand assets so that every generation reflects your brand. Models are private to your workspace and are never shared or used to train OpenArt's base models.</div>
+      <div class="pdf-body"><strong>One-Click Stories</strong> — Transform a single concept into a multi-scene visual narrative — ideal for storyboarding, social media carousels, pitch decks, and campaign concepting.</div>
+
+      <div class="pdf-section-subtitle">Enterprise Value Proposition</div>
+      <ul class="pdf-ul">
+        <li><strong>Single Sign-On (SSO):</strong> Authenticate via SAML to your existing identity provider.</li>
+        <li><strong>Floating Licenses:</strong> Licenses are not locked to individual users. Your team can reassign seats freely.</li>
+        <li><strong>Admin Controls:</strong> Centralized team management with role-based permissions and usage dashboards.</li>
+        <li><strong>Pooled Credits:</strong> Your entire credit allocation is shared flexibly across all seats.</li>
+        <li><strong>Data Privacy &amp; Ownership:</strong> OpenArt does not train on your uploads or inputs. You own all generated content.</li>
+        <li><strong>IP Indemnification:</strong> Copyright and trademark indemnification for Enterprise customers (up to $1,000,000 cap).</li>
+        <li><strong>Dedicated Support:</strong> Priority access to support and product teams.</li>
+      </ul>
+    </div>
+  `;
+
+  // ── PRICING & QUOTE ──
+  html += `
+    <div class="pdf-page-break"></div>
+    <div class="pdf-section">
+      <div class="pdf-section-title">2. Pricing &amp; Quote</div>
+
+      <div class="pdf-section-subtitle">Subscription Summary</div>
+      <table class="pdf-table">
+        <tbody>
+          <tr><td style="width:200px;"><strong>Plan</strong></td><td>OpenArt ${escHtml(data.planType)}</td></tr>
+          <tr><td><strong>Seats</strong></td><td>${data.seatCount} floating licenses</td></tr>
+          <tr><td><strong>Monthly Rate per Seat</strong></td><td>${fmtCurrency(data.monthlyRate)} USD${data.discountPct > 0 ? ` (${data.discountPct}% ${escHtml(data.discountLabel || 'discount')} applied = ${fmtCurrency(effective)}/seat)` : ''}</td></tr>
+          <tr><td><strong>${feeLabel}</strong></td><td>${fmtCurrency(contractFee)} USD</td></tr>
+          <tr><td><strong>Term</strong></td><td>${escHtml(data.term === '1 year' ? 'One (1) year' : data.term === '1 month' ? 'One (1) month' : data.term)}</td></tr>
+          <tr><td><strong>Renewal</strong></td><td>${renewalText}</td></tr>
+          <tr><td><strong>Payment Terms</strong></td><td>Invoiced upon execution; subsequent periods invoiced on anniversary, net 30</td></tr>
+        </tbody>
+      </table>
+  `;
+
+  // Credit allocation (if provided)
+  if (credNum > 0) {
+    html += `
+      <div class="pdf-section-subtitle">Credit Allocation</div>
+      <div class="pdf-body">Your ${data.planType} plan includes a generous pooled credit allowance shared flexibly across your entire team.</div>
+      <table class="pdf-table">
+        <tbody>
+          <tr><td style="width:250px;"><strong>Credits per Account per Month</strong></td><td>${escHtml(data.creditsPerMonth)}</td></tr>
+          <tr><td><strong>Total Annual Credit Allocation</strong></td><td>${fmtNum(totalAnnualCredits)}</td></tr>
+        </tbody>
+      </table>
+    `;
+
+    // Volume estimates (auto-calculated from credit ratios)
+    const vols = data.volumes;
+    if (vols) {
+      html += `
+        <div class="pdf-body">Your annual credit allocation is enough to generate approximately:</div>
+        <table class="pdf-table">
+          <thead><tr><th>Content Type</th><th>Approximate Volume</th></tr></thead>
+          <tbody>
+            <tr><td>Images</td><td>${fmtVolume(vols.images)}</td></tr>
+            <tr><td>Videos</td><td>${fmtVolume(vols.videos)}</td></tr>
+            <tr><td>Consistent Characters</td><td>${fmtVolume(vols.characters)}</td></tr>
+            <tr><td>Personalized Models</td><td>${fmtVolume(vols.models)}</td></tr>
+            <tr><td>One-Click Stories</td><td>${fmtVolume(vols.stories)}</td></tr>
+          </tbody>
+        </table>
+        <div class="pdf-body" style="font-style:italic;font-size:10px;">Actual generation counts depend on resolution, duration, complexity, and model settings. The figures above are estimates based on standard usage.</div>
+      `;
+    }
+
+    html += `
+      <div class="pdf-section-subtitle">Credit Policy</div>
+      <ul class="pdf-ul">
+        <li><strong>Evergreen credits:</strong> Enterprise credits do not expire during the term of the contract. Unused credits roll over month to month.</li>
+        <li><strong>Pooled &amp; flexible:</strong> Credits are shared across all accounts in the plan.</li>
+        <li><strong>Automatic application:</strong> Credits are applied automatically against usage.</li>
+        <li><strong>No punitive overage:</strong> Additional credits available at $0.003 USD per credit. Never applied automatically.</li>
+        <li><strong>Usage visibility:</strong> Full visibility into credit balance and usage via admin dashboard.</li>
+      </ul>
+
+      <div class="pdf-section-subtitle">Additional Capacity Pricing</div>
+      <table class="pdf-table">
+        <thead><tr><th>Add-On</th><th>Price</th></tr></thead>
+        <tbody>
+          <tr><td>Additional Seat</td><td>${fmtCurrency(data.monthlyRate)} USD / month</td></tr>
+          <tr><td>Additional Credits</td><td>$0.003 USD / credit</td></tr>
+        </tbody>
+      </table>
+    `;
+  }
+  html += `</div>`; // close pricing section
+
+  // ── IMPLEMENTATION & SUPPORT (optional) ──
+  if (data.sections.includes('implementation')) {
+    html += `
+      <div class="pdf-page-break"></div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">3. Implementation &amp; Support</div>
+        <div class="pdf-section-subtitle">Onboarding</div>
+        <div class="pdf-body">OpenArt provides hands-on onboarding assistance to ensure your team is productive from day one:</div>
+        <ul class="pdf-ul">
+          <li><strong>Account setup &amp; SSO configuration:</strong> We work with your IT team to configure SAML-based SSO and set up your workspace, team roles, and admin permissions.</li>
+          <li><strong>Training sessions:</strong> Live walkthroughs tailored to your team's use cases.</li>
+          <li><strong>Asset upload &amp; model training:</strong> Assistance uploading your brand assets and training your first Personalized Model.</li>
+          <li><strong>Best practices &amp; prompt guidance:</strong> Practical guidance on prompt engineering and workflow tips.</li>
+        </ul>
+        <div class="pdf-section-subtitle">Ongoing Support</div>
+        <ul class="pdf-ul">
+          <li><strong>Priority support:</strong> Enterprise customers receive priority response times.</li>
+          <li><strong>Product feedback channel:</strong> A direct line to our product team for feature requests and roadmap input.</li>
+          <li><strong>Platform updates:</strong> Continuous access to new features and model upgrades at no additional cost.</li>
+        </ul>
+      </div>
+    `;
+  }
+
+  // ── SECURITY & COMPLIANCE (optional) ──
+  if (data.sections.includes('security')) {
+    html += `
+      <div class="pdf-section">
+        <div class="pdf-section-title">${data.sections.includes('implementation') ? '4' : '3'}. Security &amp; Compliance</div>
+        <div class="pdf-body">OpenArt is built with enterprise security requirements in mind:</div>
+        <ul class="pdf-ul">
+          <li><strong>No training on customer data:</strong> The OpenArt platform does not, and will not, train on customer-uploaded assets or inputs.</li>
+          <li><strong>Secure asset handling:</strong> Secure uploading and retention of PII and client-uploaded assets, including sensitive materials.</li>
+          <li><strong>SSO / SAML authentication:</strong> Enterprise-grade identity management through your existing identity provider.</li>
+          <li><strong>Security questionnaire:</strong> We are happy to complete your organization's security questionnaire as part of your procurement process.</li>
+        </ul>
+      </div>
+    `;
+  }
+
+  // ── ENTERPRISE TERMS (optional) ──
+  if (data.sections.includes('terms')) {
+    let secNum = 3;
+    if (data.sections.includes('implementation')) secNum++;
+    if (data.sections.includes('security')) secNum++;
+    html += `
+      <div class="pdf-section">
+        <div class="pdf-section-title">${secNum}. Enterprise Terms Summary</div>
+        <div class="pdf-body">The following terms apply to all Enterprise subscriptions and are detailed in full in Exhibit A of the Order Form:</div>
+        <div class="pdf-body"><strong>AI-Generated Content Ownership</strong> — OpenArt makes no claims of ownership over your AI-generated content. You own all right and title to everything you create.</div>
+        <div class="pdf-body"><strong>Data Privacy</strong> — OpenArt does not, and will not, train on your uploads, inputs, or generated content. Your data is yours.</div>
+        <div class="pdf-body"><strong>Warranties</strong> — OpenArt warrants secure uploading and retention of PII and client-uploaded assets. Commercially reasonable efforts for uptime.</div>
+        <div class="pdf-body"><strong>IP Indemnification</strong> — OpenArt indemnifies you against third-party copyright or trademark claims, subject to $1,000,000 aggregate cap.</div>
+      </div>
+    `;
+  }
+
+  // ── PARTNERSHIP INCENTIVE (optional) ──
+  if (data.sections.includes('partnership')) {
+    let secNum = 3;
+    if (data.sections.includes('implementation')) secNum++;
+    if (data.sections.includes('security')) secNum++;
+    if (data.sections.includes('terms')) secNum++;
+    html += `
+      <div class="pdf-section">
+        <div class="pdf-section-title">${secNum}. Partnership Incentive</div>
+        <div class="pdf-body">We value long-term partnerships and love hearing how our customers use OpenArt. If your organization is open to the following, we would be pleased to offer bonus credits:</div>
+        <table class="pdf-table">
+          <thead><tr><th>Incentive</th><th>Your Commitment</th><th>Bonus</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Product Feedback</strong></td>
+              <td>Participate in a product feedback session with your users after onboarding</td>
+              <td>${escHtml(data.bonusCredits || 'TBD')} add-on credits${data.perAccountBonus ? ` (${escHtml(data.perAccountBonus)} per account)` : ''}, pooled</td>
+            </tr>
+            <tr>
+              <td><strong>Client Reference</strong></td>
+              <td>Allow OpenArt to mention ${escHtml(data.companyName)} as an Enterprise client</td>
+              <td><em>(included above)</em></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pdf-body" style="font-style:italic;font-size:10px;">This is entirely optional and does not affect your core subscription or pricing. Bonus credits are subject to the same evergreen, no-expiry policy.</div>
+      </div>
+    `;
+  }
+
+  // ── ORDER FORM ──
+  html += `
+    <div class="pdf-page-break"></div>
+  `;
+  // Reuse the order form builder but strip the outer template wrapper
+  const orderHTML = buildOrderFormHTML(data);
+  // Extract just the inner content (between first and last pdf-template div)
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = orderHTML;
+  html += tempDiv.querySelector('.pdf-template').innerHTML;
+
+  // ── EXHIBIT A ──
+  if (data.sections.includes('terms')) {
+    html += `
+      <div class="pdf-page-break"></div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">Exhibit A — Enterprise Terms</div>
+
+        <div class="pdf-section-subtitle">1. AI-Generated Content</div>
+        <div class="pdf-body">1.1 The OpenArt platform license authorizes Customer to create AI-Generated content for commercial and non-commercial purposes.</div>
+        <div class="pdf-body">1.2 The OpenArt platform does not, and will not, train on Customer-uploaded assets or Customer inputs.</div>
+        <div class="pdf-body">1.3 OpenArt makes no claims of ownership or copyright of Customer's AI-Generated content. Customer owns all right and title to Customer's AI-generated output.</div>
+
+        <div class="pdf-section-subtitle">2. Warranties by OpenArt</div>
+        <div class="pdf-body">2.1 OpenArt represents and warrants that the OpenArt Platform provides secure uploading for, and retention of, PII and client-uploaded assets, such as celebrity biometric data.</div>
+        <div class="pdf-body">2.2 OpenArt will use commercially reasonable efforts to ensure that the Service is timely, uninterrupted, and reliable.</div>
+
+        <div class="pdf-section-subtitle">3. Indemnification</div>
+        <div class="pdf-body">3.1 OpenArt agrees to indemnify, defend, and hold Customer harmless against any liabilities, damages, and costs (including attorneys' fees) payable to a third party arising out of a claim alleging that the OpenArt services infringe any third-party copyright or trademark right.</div>
+        <div class="pdf-body">3.2 The indemnity is conditioned on compliance with OpenArt's standard Terms of Service and is subject to a $1,000,000 aggregate cap.</div>
+      </div>
+    `;
+  }
+
+  // ── FINAL FOOTER ──
+  html += `
+    <div class="pdf-footer">
+      CONFIDENTIAL &amp; PROPRIETARY<br>
+      OpenArt AI, Inc. — openart.ai
+    </div>
+  </div>`;
+
+  return html;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ═══════════════════════════════════════
+// Preview & PDF Download
+// ═══════════════════════════════════════
+
+function showPreview() {
+  if (!validateForm()) return;
+
+  const data = getFormData();
+  if (!data.proposalNum) {
+    data.proposalNum = generateProposalNum();
+    document.getElementById('proposalNum').value = data.proposalNum;
+  }
+
+  let html;
+  if (data.docType === 'order') {
+    html = buildOrderFormHTML(data);
+    document.getElementById('modalTitle').textContent = 'Preview: Order Form';
+  } else {
+    html = buildFullProposalHTML(data);
+    document.getElementById('modalTitle').textContent = 'Preview: Full Proposal';
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('previewModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePreview() {
+  document.getElementById('previewModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function downloadPDF() {
+  const data = getFormData();
+  const el = document.getElementById('modalBody').querySelector('.pdf-template');
+  if (!el) return;
+
+  const btn = document.getElementById('downloadBtn');
+  btn.textContent = 'Generating...';
+  btn.disabled = true;
+
+  const filename = data.docType === 'order'
+    ? `OpenArt Order Form - ${data.companyName}.pdf`
+    : `OpenArt Enterprise Proposal - ${data.companyName}.pdf`;
+
+  const opt = {
+    margin: [0.3, 0.4, 0.5, 0.4],
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+    pagebreak: { mode: 'avoid-all', before: '.pdf-page-break' }
+  };
+
+  html2pdf().set(opt).from(el).save().then(() => {
+    btn.textContent = 'Download PDF';
+    btn.disabled = false;
+    showToast('PDF downloaded!');
+  }).catch(err => {
+    btn.textContent = 'Download PDF';
+    btn.disabled = false;
+    showToast('Error generating PDF');
+    console.error(err);
+  });
+}
+
+// Close modal on escape or background click
+document.getElementById('previewModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('previewModal')) closePreview();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePreview();
+});
+
+// ═══════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════
+// Init
+// ═══════════════════════════════════════
+
+refreshSavedList();
+loadAutoSave();
+updateSummary();
+updateConditionalSections();
+</script>
+
+</div><!-- end app-content -->
+
+<script>
+// Password gate — SHA-256 hash check (same as battle cards)
+const PASS_HASH = '9b97ac5e767e5393cd0eed09a8e51b6f3775eba38f792593ea016e8ba9e996b0';
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function checkAuth() {
+  if (sessionStorage.getItem('pg_auth') === 'true') {
+    document.getElementById('authOverlay').classList.add('hidden');
+    document.getElementById('appContent').classList.add('visible');
+  }
+}
+
+async function tryAuth() {
+  const input = document.getElementById('authInput');
+  const hash = await sha256(input.value);
+  if (hash === PASS_HASH) {
+    sessionStorage.setItem('pg_auth', 'true');
+    document.getElementById('authOverlay').classList.add('hidden');
+    document.getElementById('appContent').classList.add('visible');
+  } else {
+    input.classList.add('error');
+    document.getElementById('authError').classList.add('visible');
+    input.value = '';
+    input.focus();
+  }
+}
+
+document.getElementById('authBtn').addEventListener('click', tryAuth);
+document.getElementById('authInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryAuth();
+  document.getElementById('authInput').classList.remove('error');
+  document.getElementById('authError').classList.remove('visible');
+});
+
+checkAuth();
+</script>
+
+</body>
+</html>
