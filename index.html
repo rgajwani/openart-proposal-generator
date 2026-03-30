@@ -2000,15 +2000,21 @@ function downloadPDF() {
     ? `OpenArt Order Form - ${data.companyName}.pdf`
     : `OpenArt Enterprise Proposal - ${data.companyName}.pdf`;
 
-  // Clone element to document.body so html2canvas can capture it correctly.
-  // html2canvas fails to render elements inside position:fixed + overflow-y:auto
-  // containers (the modal), producing blank pages.
+  // Clone element to document.body at top:0,left:0 so html2canvas can capture it.
+  // html2canvas computes element position as getBoundingClientRect().top + window.scrollY.
+  // Positioning at top:-9999px gives a document Y of -9999, which html2canvas can't render.
+  // Positioning at top:0,left:0 with z-index:0 keeps it under the modal overlay (z-index:1000)
+  // so the user never sees a flash, and html2canvas captures it correctly.
   const clone = el.cloneNode(true);
   clone.style.position = 'absolute';
-  clone.style.top = '-9999px';
-  clone.style.left = '0px';
-  clone.style.zIndex = '-1';
+  clone.style.top = '0';
+  clone.style.left = '0';
+  clone.style.width = '816px';
+  clone.style.zIndex = '0';
   document.body.appendChild(clone);
+
+  const prevScrollY = window.scrollY;
+  window.scrollTo(0, 0);
 
   const opt = {
     margin: [0.3, 0.4, 0.5, 0.4],
@@ -2021,11 +2027,13 @@ function downloadPDF() {
 
   html2pdf().set(opt).from(clone).save().then(() => {
     document.body.removeChild(clone);
+    window.scrollTo(0, prevScrollY);
     btn.textContent = 'Download PDF';
     btn.disabled = false;
     showToast('PDF downloaded!');
   }).catch(err => {
     document.body.removeChild(clone);
+    window.scrollTo(0, prevScrollY);
     btn.textContent = 'Download PDF';
     btn.disabled = false;
     showToast('Error generating PDF');
