@@ -2000,20 +2000,32 @@ function downloadPDF() {
     ? `OpenArt Order Form - ${data.companyName}.pdf`
     : `OpenArt Enterprise Proposal - ${data.companyName}.pdf`;
 
+  // Clone element to document.body so html2canvas can capture it correctly.
+  // html2canvas fails to render elements inside position:fixed + overflow-y:auto
+  // containers (the modal), producing blank pages.
+  const clone = el.cloneNode(true);
+  clone.style.position = 'absolute';
+  clone.style.top = '-9999px';
+  clone.style.left = '0px';
+  clone.style.zIndex = '-1';
+  document.body.appendChild(clone);
+
   const opt = {
     margin: [0.3, 0.4, 0.5, 0.4],
     filename: filename,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+    html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
     jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
     pagebreak: { mode: 'avoid-all', before: '.pdf-page-break' }
   };
 
-  html2pdf().set(opt).from(el).save().then(() => {
+  html2pdf().set(opt).from(clone).save().then(() => {
+    document.body.removeChild(clone);
     btn.textContent = 'Download PDF';
     btn.disabled = false;
     showToast('PDF downloaded!');
   }).catch(err => {
+    document.body.removeChild(clone);
     btn.textContent = 'Download PDF';
     btn.disabled = false;
     showToast('Error generating PDF');
