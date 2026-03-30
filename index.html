@@ -2000,45 +2000,37 @@ function downloadPDF() {
     ? `OpenArt Order Form - ${data.companyName}.pdf`
     : `OpenArt Enterprise Proposal - ${data.companyName}.pdf`;
 
-  // Clone element to document.body at top:0,left:0 so html2canvas can capture it.
-  // html2canvas computes element position as getBoundingClientRect().top + window.scrollY.
-  // Positioning at top:-9999px gives a document Y of -9999, which html2canvas can't render.
-  // Positioning at top:0,left:0 with z-index:0 keeps it under the modal overlay (z-index:1000)
-  // so the user never sees a flash, and html2canvas captures it correctly.
+  // html2canvas consistently produces blank output for this content (returns empty canvas).
+  // Switch to window.print() which uses the same native renderer as the Preview modal,
+  // guaranteeing the output matches what the user sees.
+  // On Mac: print dialog opens → PDF dropdown → Save as PDF.
   const clone = el.cloneNode(true);
-  clone.style.position = 'absolute';
-  clone.style.top = '0';
-  clone.style.left = '0';
-  clone.style.width = '816px';
-  clone.style.zIndex = '0';
+  clone.id = 'pdf-print-target';
   document.body.appendChild(clone);
 
-  const prevScrollY = window.scrollY;
-  window.scrollTo(0, 0);
+  const printStyle = document.createElement('style');
+  printStyle.id = 'pdf-print-style';
+  printStyle.textContent = `@media print {
+    body > *:not(#pdf-print-target) { display: none !important; }
+    #pdf-print-target { display: block !important; position: static !important; width: 100% !important; margin: 0 !important; }
+    @page { size: letter portrait; margin: 0.3in 0.4in 0.5in 0.4in; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff !important; }
+    .pdf-page-break { page-break-before: always; break-before: page; }
+  }`;
+  document.head.appendChild(printStyle);
 
-  const opt = {
-    margin: [0.3, 0.4, 0.5, 0.4],
-    filename: filename,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
-    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-    pagebreak: { mode: 'avoid-all', before: '.pdf-page-break' }
-  };
-
-  html2pdf().set(opt).from(clone).save().then(() => {
-    document.body.removeChild(clone);
-    window.scrollTo(0, prevScrollY);
+  function cleanupPrint() {
+    const t = document.getElementById('pdf-print-target');
+    const s = document.getElementById('pdf-print-style');
+    if (t) document.body.removeChild(t);
+    if (s) document.head.removeChild(s);
     btn.textContent = 'Download PDF';
     btn.disabled = false;
-    showToast('PDF downloaded!');
-  }).catch(err => {
-    document.body.removeChild(clone);
-    window.scrollTo(0, prevScrollY);
-    btn.textContent = 'Download PDF';
-    btn.disabled = false;
-    showToast('Error generating PDF');
-    console.error(err);
-  });
+  }
+
+  window.addEventListener('afterprint', cleanupPrint, { once: true });
+  window.print();
+  cleanupPrint(); // Chrome: print() is synchronous; afterprint fires after this line
 }
 
 // Close modal on escape or background click
